@@ -1049,6 +1049,64 @@ In **part 6**, you'll explore how to persist and share data between Pods using d
 
 ---
 
+# 📦 Kubernetes Volumes – Quick Notes
+
+## ⚠️ Pods are Ephemeral!
+ ==When a Pod is deleted, everything inside it is lost — unless it's backed by a volume.==
+
+---
+
+## 📁 Volume Types
+
+| Volume Type   | Description                                             |
+|---------------|---------------------------------------------------------|
+| `emptyDir`    | Temporary storage shared between containers in a Pod. Deleted when the Pod is deleted. |
+| `hostPath`    | Mounts a file or directory from the host node into the Pod. **Not recommended** for production use. |
+| **Persistent Volumes** | Backed by real storage from cloud or local systems. Persist beyond Pod lifecycle. |
+| ├─ EBS         | Amazon Elastic Block Store — supports **RWO** access. |
+| └─ EFS         | Amazon Elastic File System — supports **RWX** access. |
+
+---
+
+## ⚙️ Provisioning Modes
+
+| Mode               | Description                                              |
+|--------------------|----------------------------------------------------------|
+| **Static**         | Volume is pre-created manually (e.g., via AWS Console)   |
+| **Dynamic**        | Volume is created **automatically** using a `StorageClass` |
+
+---
+
+## 🔓 Access Modes
+
+| Access Mode         | Description                                           | Example Volume |
+|---------------------|-------------------------------------------------------|----------------|
+| `ReadWriteOnce` (RWO) | One node can read/write at a time                   | EBS            |
+| `ReadOnlyMany` (ROX)  | Many nodes can read, but none can write             | EFS (rare)     |
+| `ReadWriteMany` (RWX) | Many nodes can read/write simultaneously            | EFS            |
+| `ReadWriteOncePod`    | Only a single pod (on any node) can access the volume | Rare use case  |
+
+---
+
+## ♻️ Reclaim Policies
+
+| Policy     | Description                                                      |
+|------------|------------------------------------------------------------------|
+| `Retain`   | Manual cleanup required. Volume and data are retained.          |
+| `Recycle`  | Performs basic scrub (`rm -rf /volume/*`) — deprecated in many environments |
+| `Delete`   | Deletes the associated storage resource automatically (e.g., EBS volume) |
+
+---
+
+## 🔁 volumeBindingMode
+
+| Mode                  | Behavior                                                              |
+|-----------------------|-----------------------------------------------------------------------|
+| `WaitForFirstConsumer` | Volume is created **only when Pod is scheduled** (prevents cross-AZ issues) |
+| `Immediate`           | Volume is created **as soon as PVC is created**, even before pod uses it |
+
+---
+
 ## 🔧 How to Use
 
 👉 You can copy all YAMLs below into a file like `main.yaml` and run:
