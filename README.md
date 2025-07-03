@@ -58,6 +58,10 @@ You should record the SecretAccessKey and AccessKeyID in the returned JSON outpu
 aws configure           # Use your new access and secret key here
 aws iam list-users      # you should see a list of all your IAM users here
 
+# Create ssh-keys for kOps to use
+ssh-keygen -t rsa -b 4096 -f ~/.ssh/kops-ssh-key
+kops create secret --name <your-cluster-name> sshpublickey admin -i ~/.ssh/kops-ssh-key.pub
+
 # Because "aws configure" doesn't export these vars for kops to use, we export them now
 export AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
 export AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
@@ -750,6 +754,8 @@ kubectl label node <node-name-3> node-type=high-memory
 kubectl taint node <node-name-3> colour=blue:NoSchedule
 ```
 
+---
+
 ## 🔧 How to Use
 
 👉 You can copy all YAMLs below into a file like `main.yaml` and run:
@@ -1013,3 +1019,232 @@ Subscribe to our **YouTube Channel** – *Learn With Mithran*
 🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
 
 ---
+
+# 🚀 Kubernetes Part 6 – YAML Reference Guide
+
+In **part 6**, you'll explore how to persist and share data between Pods using different types of volumes. You’ll also understand how to dynamically and statically provision storage in AWS with EBS and EFS.
+
+## 📚 What You’ll Learn
+
+- ✅ Difference between `emptyDir`, `hostPath`, `PersistentVolume` (PV) and `PersistentVolumeClaim` (PVC)  
+- ✅ Use `StorageClass` for dynamic provisioning of **EBS** and **EFS**  
+- ✅ Understand how `ReadWriteOnce` and `ReadWriteMany` access modes affect Pod mounting  
+- ✅ Share data between containers using `emptyDir`  
+- ✅ Mount host machine files into Pods using `hostPath`  
+- ✅ Use **EBS** volumes with static and dynamic provisioning  
+- ✅ Use **EFS** for shared, scalable, and dynamic file storage  
+- ✅ Full hands-on examples with YAML
+
+---
+
+### 🛠️ Cluster Setup: Enable the Add-on with Pod Identity (via Console)
+
+- 1️⃣ Go to EKS > Your Cluster > Add-ons
+- 2️⃣ Click Create Add-on
+- 3️⃣ Choose aws-ebs-csi-driver & aws-efs-csi-driver
+- 4️⃣ Select latest version
+- 5️⃣ For IAM Role, choose:
+- 6️⃣ Pod Identity (recommended)
+- 7️⃣ Select or create the IAM role: AmazonEKS_EBS_CSI_DriverRole, AmazonEKS_EFS_CSI_DriverRole
+
+---
+
+## 🔧 How to Use
+
+👉 You can copy all YAMLs below into a file like `main.yaml` and run:
+
+```bash
+kubectl apply -f main.yaml
+```
+
+### 1️⃣ Sharing Data Between Containers Using `emptyDir`
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: emptydir-example
+spec:
+  containers:
+    - name: writer-cont1
+      image: busybox
+      command: ["/bin/sh", "-c", "echo 'Hello from writer' > /data/message.txt && sleep 3600"]
+      volumeMounts:
+        - mountPath: /data
+          name: shared-data
+    - name: reader-cont2
+      image: busybox
+      command: ["/bin/sh", "-c", "cat /data/message.txt && sleep 3600"]
+      volumeMounts:
+        - mountPath: /data
+          name: shared-data
+  volumes:
+    - name: shared-data
+      emptyDir: {}
+```
+
+### 2️⃣ Accessing Host Files Using hostPath
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostpath-etc-example
+spec:
+  containers:
+    - name: etc-reader
+      image: busybox
+      command: ["/bin/sh", "-c", "ls /host/etc && sleep 3600"]
+      volumeMounts:
+        - mountPath: /host/etc
+          name: host-etc
+  volumes:
+    - name: host-etc
+      hostPath:
+        path: /etc
+        type: Directory
+```
+
+### 3️⃣ Dynamic EBS Provisioning Using StorageClass and PVC
+
+```yaml
+# StorageClass for EBS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-sc
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+---
+# PVC for EBS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ebs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 4Gi
+  storageClassName: ebs-sc
+---
+# Pod using the dynamic EBS volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    volumeMounts:
+    - mountPath: "/data"
+      name: ebs-volume
+  volumes:
+  - name: ebs-volume
+    persistentVolumeClaim:
+      claimName: ebs-pvc
+
+```
+
+### 4️⃣ Static EBS Volume with Manual PV and PVC
+
+```yaml
+# Static PersistentVolume (replace with actual EBS Volume ID)
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: static-ebs-pv
+spec:
+  capacity:
+    storage: 3Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: manual
+  csi:
+    driver: ebs.csi.aws.com
+    volumeHandle: vol-xxxxxxxxxxxxxx     # Replace EBS Volume id
+---
+# PersistentVolumeClaim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: static-ebs-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: manual
+  resources:
+    requests:
+      storage: 3Gi
+---
+# Pod using the static EBS volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ebs-pod
+spec:
+  containers:
+  - name: app
+    image: nginx
+    volumeMounts:
+    - mountPath: "/data"
+      name: ebs-volume
+  volumes:
+  - name: ebs-volume
+    persistentVolumeClaim:
+      claimName: static-ebs-pvc
+
+```
+
+### 5️⃣ Dynamic EFS Volume Provisioning with StorageClass and PVC
+
+```yaml
+# StorageClass for EFS
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-sc
+provisioner: efs.csi.aws.com
+parameters:
+  provisioningMode: efs-ap
+  fileSystemId: fs-0f8431a1f00634456  # Replace with your EFS ID
+  directoryPerms: "700"
+  gidRangeStart: "1000"
+  gidRangeEnd: "2000"
+  basePath: "/dynamic_provisioning"
+---
+# PVC for EFS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: efs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: efs-sc
+---
+# Pod using EFS volume
+apiVersion: v1
+kind: Pod
+metadata:
+  name: efs-test-pod
+spec:
+  containers:
+    - name: app
+      image: busybox
+      command: [ "/bin/sh", "-c", "echo EFS volume is working > /data/hello.txt && sleep 3600" ]
+      volumeMounts:
+        - name: efs-volume
+          mountPath: /data
+  volumes:
+    - name: efs-volume
+      persistentVolumeClaim:
+        claimName: efs-pvc
+```
