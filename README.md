@@ -9,6 +9,10 @@ This README serves as a **complete hands-on guide** for Kubernetes learning. It 
 
 ---
 
+
+
+---
+
 ## 🔧 Getting Started with kOps on AWS
 
 [Click me](https://kops.sigs.k8s.io/getting_started/aws/) for Official Documentation of kOps
@@ -1306,3 +1310,293 @@ spec:
       persistentVolumeClaim:
         claimName: efs-pvc
 ```
+
+---
+
+### 📞 Contact Us
+**Phone:** [+91 91500 87745](tel:+919150087745)
+
+### 💬 Ask Your Doubts
+Join our **Discord Community**  
+👉 [Click here to connect](https://discord.gg/N7GBNHBdqw)
+
+### 📺 Explore More Learning
+Subscribe to our **YouTube Channel** – *Learn With Mithran*  
+🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
+
+---
+
+# 🚦 Kubernetes Part 7 – Probes, Init Containers, Sidecars & Environment Variables
+
+---
+
+## 📘 What You Will Learn
+
+In **Day 7**, you'll learn how Kubernetes manages **application health**, **startup sequences**, and **shared responsibilities** between containers. This session is packed with **live examples** and advanced techniques.
+
+✅ Understand how **Liveness**, **Readiness**, and **Startup** probes work  
+✅ Configure probes to detect failures, slow startups, and readiness checks  
+✅ Use **Init Containers** for setup tasks before app starts  
+✅ Implement the **Sidecar pattern** to enhance or monitor your main container  
+✅ Inject configuration using **Environment Variables**, **ConfigMaps**, and **Secrets**  
+✅ Mount secrets as files and access securely
+
+---
+
+## 🔧 How to Use
+
+👉 You can copy all YAMLs below into a file like `main.yaml` and run:
+
+```bash
+kubectl apply -f main.yaml
+```
+
+### 🧪 1️⃣ Pod example with All Three Probes
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe-demo
+spec:
+  containers:
+  - name: demo-app
+    image: httpd:latest
+    ports:
+    - containerPort: 8080
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+      initialDelaySeconds: 10
+      periodSeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 3
+    startupProbe:
+      httpGet:
+        path: /startup
+        port: 8080
+      failureThreshold: 30
+      periodSeconds: 10
+``` 
+
+## ⏱️ Probe Timing Example (Understanding Failure/Success)
+
+Let's say you have this probe configuration:
+
+```yaml
+initialDelaySeconds: 15
+periodSeconds: 30
+failureThreshold: 4
+successThreshold: 2
+timeoutSeconds: 10
+```
+
+| Time       | Event               | Result            |
+| ---------- | ------------------- | ----------------- |
+| 2:00:00 PM | Pod Started         |                   |
+| 2:00:15 PM | 1st Check (Fail)    | ❌                 |
+| 2:00:45 PM | 2nd Check (Fail)    | ❌                 |
+| 2:01:15 PM | 3rd Check (Fail)    | ❌                 |
+| 2:01:45 PM | 4th Check (Fail)    | ❌ Pod Restart     |
+| 2:02:15 PM | 5th Check (Success) | ✅                 |
+| 2:02:45 PM | 6th Check (Success) | ✅ (Healthy again) |
+
+> 💡 Note: The probe starts only after the initialDelaySeconds. If failureThreshold is reached with consecutive failures, the container will be restarted. After restart, the container must pass successThreshold consecutive checks to be marked as Ready.
+
+### 🧪 2️⃣ Liveness Probe with NGINX
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liveness-nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+    ports:
+    - containerPort: 80
+    livenessProbe:
+      httpGet:
+        path: /
+        port: 80
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      failureThreshold: 3
+
+```
+
+### 🧪 3️⃣ Liveness Probe with Exec (BusyBox)
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: liveness-busybox
+spec:
+  containers:
+  - name: busybox
+    image: busybox:latest
+    command: ["sh", "-c", "touch /tmp/healthy && sleep 3600"]
+    livenessProbe:
+      exec:
+        command: ["cat", "/tmp/healthy"]
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 3
+
+```
+
+### 🏁 4️⃣ Init Container Example
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-demo
+spec:
+  containers:
+  - name: app
+    image: busybox
+    command: ['sh', '-c', 'echo "App started!" && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox
+    command: ['sh', '-c', 'echo "Initializing..."; sleep 5']
+```
+
+### 🤝 5️⃣ Sidecar Pattern – Logging Example
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sidecar-demo
+spec:
+  containers:
+  - name: app
+    image: busybox
+    command: ['sh', '-c', 'echo "Writing log..." && while true; do echo log >> /shared/log.txt; sleep 5; done']
+    volumeMounts:
+    - name: shared-logs
+      mountPath: /shared
+
+  - name: log-watcher
+    image: busybox
+    command: ['sh', '-c', 'tail -f /shared/log.txt']
+    volumeMounts:
+    - name: shared-logs
+      mountPath: /shared
+
+  volumes:
+  - name: shared-logs
+    emptyDir: {}
+```
+
+### 🌿 6️⃣ Using Environment Variables  
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: env-demo
+spec:
+  containers:
+  - name: demo
+    image: busybox
+    command: ["sh", "-c", "echo $ENV_MSG && sleep 3600"]
+    env:
+    - name: ENV_MSG
+      value: "Hello from LearnWithMithran Youtube!"
+```
+
+### ⚙️ 7️⃣ ConfigMap and Secret as envFrom
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_COLR: blue
+  APP_MODE: prod
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+data:
+  Channel: TGVhcldpdGhNaXRocmFuCg==
+  Owner: TWl0aHJhbgo=
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: simple-webcolor-pod
+spec:
+  containers:
+  - name: simple-webcolor-pod
+    image: httpd
+    ports:
+    - containerPort: 80
+    envFrom:
+    - configMapRef:
+        name: app-config
+    - secretRef:
+        name: app-secret
+```
+
+### 🔐 8️⃣ Secrets as Environment Variable and Mounted File
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: demo-secret
+data:
+  password: dXBkYXRlZDQ1Ngo=
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-demo
+spec:
+  containers:
+  - name: demo
+    image: busybox
+    command: ["/bin/sh", "-c", "while true; do echo ENV: $PASSWORD; echo FILE: $(cat /etc/secret/password); sleep 10; done"]
+    env:
+    - name: PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: demo-secret
+          key: password
+    volumeMounts:
+    - name: secret-vol
+      mountPath: /etc/secret
+      readOnly: true
+  volumes:
+  - name: secret-vol
+    secret:
+      secretName: demo-secret
+```
+
+---
+
+### 📞 Contact Us
+**Phone:** [+91 91500 87745](tel:+919150087745)
+
+### 💬 Ask Your Doubts
+Join our **Discord Community**  
+👉 [Click here to connect](https://discord.gg/N7GBNHBdqw)
+
+### 📺 Explore More Learning
+Subscribe to our **YouTube Channel** – *Learn With Mithran*  
+🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
+
+---
