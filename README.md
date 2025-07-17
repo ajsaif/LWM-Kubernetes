@@ -1328,9 +1328,8 @@ Subscribe to our **YouTube Channel** – *Learn With Mithran*
 
 # 🚦 Kubernetes Part 7 – Probes, Init Containers, Sidecars & Environment Variables
 
----
 
-## 📘 What You Will Learn
+## 📚 What You Will Learn
 
 In **Day 7**, you'll learn how Kubernetes manages **application health**, **startup sequences**, and **shared responsibilities** between containers. This session is packed with **live examples** and advanced techniques.
 
@@ -1585,6 +1584,404 @@ spec:
     secret:
       secretName: demo-secret
 ```
+
+---
+
+### 📞 Contact Us
+**Phone:** [+91 91500 87745](tel:+919150087745)
+
+### 💬 Ask Your Doubts
+Join our **Discord Community**  
+👉 [Click here to connect](https://discord.gg/N7GBNHBdqw)
+
+### 📺 Explore More Learning
+Subscribe to our **YouTube Channel** – *Learn With Mithran*  
+🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
+
+---
+
+# 🚀 Kubernetes Part 8 – AWS EKS ALB Ingress Controller
+
+
+## 📚 What You Will Learn
+
+In **Day 8**, you'll learn how to configure advanced Kubernetes networking and traffic routing using the **AWS ALB Ingress Controller** and **Helm**. This session helps you build real-world multi-team infrastructure in an Amazon EKS cluster.
+
+✅ Install and configure eksctl and Helm for production-grade clusters
+✅ Deploy the AWS Load Balancer Controller using Helm and IAM integration
+✅ Create and expose applications using Kubernetes Ingress
+✅ Set up path-based routing with a shared ALB across teams
+✅ Deploy workloads in isolated namespaces (e.g., team-a, team-b)
+✅ Use annotations to control Ingress behavior, grouping, and routing
+✅ Understand the difference between LoadBalancer and Ingress services
+✅ Deploy multi-container apps and manage traffic securely and efficiently
+
+---
+
+## ❗ Why Not Use LoadBalancer Services Alone?
+
+Using Kubernetes Service of type LoadBalancer works well for exposing single services, but it has major limitations:
+
+### ⚠️ Drawbacks of LoadBalancer Service
+
+- 🚫 One ALB per Service → costly in production
+- 📈 Scales poorly if you have many microservices
+- 🧱 No support for path-based or host-based routing
+- 🧍‍♂️ Harder to manage for multiple teams/projects
+- 🔐 Difficult to apply centralized security policies
+
+## 🧪 Example Issue with LoadBalancer Services
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-service-1
+spec:
+  type: LoadBalancer
+  selector:
+    colour: blue
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lwm-deployment-1
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      colour: blue
+  template:
+    metadata:
+      labels:
+        colour: blue
+    spec:
+      containers:
+      - name: cont1
+        image: httpd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-service-2
+spec:
+  type: LoadBalancer
+  selector:
+    colour: black
+  ports:
+    - port: 80
+      targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lwm-deployment-2
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      colour: black
+  template:
+    metadata:
+      labels:
+        colour: black
+    spec:
+      containers:
+      - name: cont1
+        image: nginx
+```
+
+## ✅ Why Use Ingress with ALB Controller?
+
+Ingress with ALB controller provides:
+
+- ✅ Single ALB for multiple apps (shared ALB)
+- 🔁 Path-based routing (/app1, /app2, etc.)
+- 🧑‍🤝‍🧑 Team-level separation via namespaces & ingress group
+- 💸 Cost savings – fewer ALBs created
+- 🔐 Centralized control over routing & TLS termination
+- ☁️ Better AWS-native integration via Load Balancer Controller
+
+> ✅ Recommendation: Use Ingress + AWS Load Balancer Controller for scalable, secure, and cost-efficient EKS routing.
+
+
+## ⚙️ Prerequisites to Install ALB Ingress Controller
+
+- AWS CLI configured
+- IAM user with appropriate EKS permissions
+- `kubectl` installed
+- `eksctl` and `helm` installed
+
+### 🧱 eksctl Setup
+
+```bash
+# Install eksctl
+ARCH=amd64
+PLATFORM=$(uname -s)_$ARCH
+
+curl -sLO "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_$PLATFORM.tar.gz"
+curl -sL "https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_checksums.txt" | grep $PLATFORM | sha256sum --check
+
+tar -xzf eksctl_$PLATFORM.tar.gz -C /tmp && rm eksctl_$PLATFORM.tar.gz
+sudo install -m 0755 /tmp/eksctl /usr/local/bin && rm /tmp/eksctl
+```
+
+### 🔐 OIDC and IAM Setup
+
+```bash
+eksctl utils associate-iam-oidc-provider \
+  --region=ap-southeast-1 \
+  --cluster=LearnWithMithran2 \
+  --approve
+```
+
+### 📥 Download the IAM policy:
+
+[Click Me for IAM Json Policy](https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/docs/install/iam_policy.json)
+
+Create the IAM policy in AWS as: `AWSLoadBalancerControllerIAMPolicy2`
+
+### 📥 Create service account:
+
+```bash
+eksctl create iamserviceaccount \
+  --cluster LearnWithMithran2 \
+  --region ap-southeast-1 \
+  --namespace kube-system \
+  --name aws-load-balancer-controller2 \
+  --attach-policy-arn arn:aws:iam::992382429239:policy/AWSLoadBalancerControllerIAMPolicy2 \
+  --approve
+```
+
+### 📦 Helm Setup
+
+```bash
+curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+chmod 700 get_helm.sh
+./get_helm.sh
+```
+
+### 📡 Add and update repo:
+
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+```
+
+### 🚀 Install AWS ALB Ingress Controller
+
+```bash
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system \
+  --set clusterName=LearnWithMithran \
+  --set region=ap-southeast-1 \
+  --set vpcId=vpc-020d3da5a9615c591 \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=aws-load-balancer-controller2
+```
+
+---
+
+## 🌐 Ingress Setup: Basic Echo App
+
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+      - name: hello
+        image: hashicorp/http-echo
+        args: ["-text=Hello from app"]
+        ports:
+        - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-service
+spec:
+  selector:
+    app: hello
+  ports:
+  - port: 80
+    targetPort: 5678
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /LWM
+        pathType: Prefix
+        backend:
+          service:
+            name: hello-service
+            port:
+              number: 80
+```
+
+## 👥 Multi-Team Namespaces with Shared ALB
+
+### Create Namespaces
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-b
+```
+
+### Team A
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-a
+  namespace: team-a
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-a
+  template:
+    metadata:
+      labels:
+        app: app-a
+    spec:
+      containers:
+      - name: app-a
+        image: hashicorp/http-echo
+        args: ["-text=Hello from App A LWM"]
+        ports:
+        - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-a-svc
+  namespace: team-a
+spec:
+  selector:
+    app: app-a
+  ports:
+  - port: 80
+    targetPort: 5678
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-a-ingress
+  namespace: team-a
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: shared-alb
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /a
+        pathType: Prefix
+        backend:
+          service:
+            name: app-a-svc
+            port:
+              number: 80
+```
+
+### Team B
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-b
+  namespace: team-b
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-b
+  template:
+    metadata:
+      labels:
+        app: app-b
+    spec:
+      containers:
+      - name: app-b
+        image: hashicorp/http-echo
+        args: ["-text=Hello from App B LWM"]
+        ports:
+        - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-b-svc
+  namespace: team-b
+spec:
+  selector:
+    app: app-b
+  ports:
+  - port: 80
+    targetPort: 5678
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-b-ingress
+  namespace: team-b
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: shared-alb
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /b
+        pathType: Prefix
+        backend:
+          service:
+            name: app-b-svc
+            port:
+              number: 80
+```
+
+## 📌 Notes
+
+- Ingress class should match your ALB controller: kubernetes.io/ingress.class: alb
+- Shared ALB group enables multi-team routing via paths
+- Ensure VPC ID and IAM policies are correctly set in the helm install step
 
 ---
 
