@@ -9,10 +9,6 @@ This README serves as a **complete hands-on guide** for Kubernetes learning. It 
 
 ---
 
-
-
----
-
 ## 🔧 Getting Started with kOps on AWS
 
 [Click me](https://kops.sigs.k8s.io/getting_started/aws/) for Official Documentation of kOps
@@ -1982,6 +1978,522 @@ spec:
 - Ingress class should match your ALB controller: kubernetes.io/ingress.class: alb
 - Shared ALB group enables multi-team routing via paths
 - Ensure VPC ID and IAM policies are correctly set in the helm install step
+
+---
+
+### 📞 Contact Us
+**Phone:** [+91 91500 87745](tel:+919150087745)
+
+### 💬 Ask Your Doubts
+Join our **Discord Community**  
+👉 [Click here to connect](https://discord.gg/N7GBNHBdqw)
+
+### 📺 Explore More Learning
+Subscribe to our **YouTube Channel** – *Learn With Mithran*  
+🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
+
+---
+
+# 🚀 Kubernetes Part 9 – Jobs, CronJobs, StatefulSets, HPA, and ExternalName Services
+
+
+## 📚 What You Will Learn
+
+In **Day 9**, we deep dive into *Kubernetes workload types and resource management*. These examples are hands-on and ideal for mastering real-world use cases with **Jobs, CronJobs, StatefulSets, ExternalName, Resource Requests/Limits, and Horizontal Pod Autoscaling (HPA)**.
+
+✅ Create one-time Jobs and scheduled CronJobs
+✅ Understand StatefulSet and Headless Services (with and without volumes)
+✅ Simulate FQDN with ExternalName services
+✅ Apply resource requests and limits to containers
+✅ Configure HPA using the Kubernetes Metrics Server
+✅ Deploy multi-replica applications using Deployments and Services
+✅ Run test pods and simulate DNS-based access
+
+---
+
+## 🛠️ Kubernetes Job and CronJob – One-time and Recurring Tasks
+
+Jobs and CronJobs help run short-lived or recurring background tasks in Kubernetes.
+
+### 🔨 What is a Job?
+A Job creates one or more pods and ensures that a specific task runs to completion. Once the task finishes successfully, the Job is considered complete.
+
+✅ Use when you need to:
+
+- Run a one-time task
+- Perform data migration or setup scripts
+- Process a batch job or backup operation
+
+#### 🔧 Example YAML – Job
+
+```yaml
+# One-time Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hello-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: hello
+        image: busybox
+        command: ["echo", "Hello from Kubernetes Job"]
+      restartPolicy: Never
+  backoffLimit: 2
+```
+
+
+### ⏰ What is a CronJob?
+A CronJob creates Jobs on a schedule, like a traditional Linux cron. It’s ideal for repeating tasks such as log rotation, cleanup, backups, etc.
+
+✅ Use when you need to:
+
+- Run a task at specific time intervals
+- Automate recurring operations
+- Perform periodic cleanups or reports
+
+#### 🔧 Example YAML – CronJob
+
+```yaml
+# Recurring CronJob
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-task
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cleanup
+            image: busybox
+            command: ["sh", "-c", "echo Cleaning temp files at $(date)"]
+          restartPolicy: OnFailure
+```
+
+### 🆚 Jobs vs CronJobs – Comparison Table
+
+| Feature            | **Job**                                     | **CronJob**                       |
+| ------------------ | ------------------------------------------- | --------------------------------- |
+| **Run Type**       | One-time execution                          | Recurring on schedule             |
+| **Scheduling**     | Immediate or manual                         | CRON-based (e.g., every 5 mins)   |
+| **Use Case**       | Backup, data migration, processing one file | Daily reports, cleanup tasks      |
+| **Pod Lifecycle**  | Runs once then terminates                   | Triggers Job objects at intervals |
+| **Built-in Retry** | ✅ Yes (`backoffLimit`)                      | ✅ Yes, inherited from Job spec    |
+
+
+---
+
+## ⚔️ Deployments vs StatefulSets
+
+Kubernetes provides different workload types for managing application lifecycles. Two of the most common are Deployments and StatefulSets.
+
+
+### ✅ When to Use Deployments
+
+- Your application is stateless
+- You want easy horizontal scaling
+- Any pod can serve any request (e.g., web servers, REST APIs, frontend apps)
+- Persistent storage is not required or shared storage is enough
+
+### ✅ When to Use StatefulSets
+
+- Each pod needs a stable identity
+- You want stable persistent storage per pod
+- Pods need stable DNS names
+- You require ordered, graceful deployment, scaling, or deletion
+- Use cases include databases (MySQL, MongoDB), queues, Kafka, Zookeeper
+
+### 🔍 What’s the Difference?
+
+| Feature                    | **Deployment**                                              | **StatefulSet**                                                    |
+| -------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Pod Name**               | Dynamic, auto-generated (e.g., `app-xyz123`)                | Stable and predictable (`app-0`, `app-1`)                          |
+| **Pod Identity**           | All pods are identical (no unique identity)                 | Each pod has a **unique, stable identity**                         |
+| **Storage**                | Shared or ephemeral storage                                 | Dedicated persistent volume per pod                                |
+| **Network Identity (DNS)** | Shared service FQDN (e.g., `svc.default.svc.cluster.local`) | Unique FQDN per pod (e.g., `pod-0.svc.default.svc.cluster.local`)  |
+| **Scaling Behavior**       | All pods are interchangeable                                | Pods are created **sequentially** and deleted in **reverse order** |
+| **Use Case**               | Stateless applications                                      | Stateful applications                                              |
+
+
+## 🧱 StatefulSet With Headless Service (Without Volumes)
+
+```yaml
+# Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-headless
+spec:
+  clusterIP: None
+  selector:
+    app: nginx
+  ports:
+  - port: 80
+    name: http
+---
+# StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nginx
+spec:
+  serviceName: "nginx-headless"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+```
+
+## 🧱 Deployment With ClusterIp Service
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpd-deploy
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      colour: blue
+  template:
+    metadata:
+      labels:
+        colour: blue
+    spec:
+      containers:
+      - name: cont1
+        image: httpd
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpd-svc
+spec:
+  selector:
+    colour: blue
+  ports:
+  - port: 80
+    targetPort: 80
+```
+
+## 🔄 StatefulSet vs Deployment – FQDN Behavior and Identity
+
+When running microservices in Kubernetes, how services are addressed (FQDN) matters for stable communication, especially in distributed systems like databases or stateful workloads.
+
+| Feature                 | **Deployment**                                 | **StatefulSet**                                                  |
+| ----------------------- | ---------------------------------------------- | ---------------------------------------------------------------- |
+| **Pod Name**            | Random (e.g., `httpd-deploy-5f89dfd9cc-abcde`) | Fixed (e.g., `nginx-0`, `nginx-1`, `nginx-2`)                    |
+| **ClusterIP**           | Assigned (e.g., `10.100.247.159`)              | `None` (Headless Service)                                        |
+| **Pod IP**              | Dynamic (changes on restart)                   | Dynamic (still can change, but FQDN is stable)                   |
+| **FQDN Format**         | `httpd-svc.default.svc.cluster.local`          | `nginx-0.nginx-headless.default.svc.cluster.local`, `nginx-1...` |
+| **Stable DNS Identity** | ❌ No stable per-pod DNS                        | ✅ Stable and addressable via predictable FQDN                    |
+| **Use Case**            | Stateless apps (e.g., web servers)             | Stateful apps (e.g., DBs, queues)                                |
+
+## 📘 Example: FQDN Usage
+
+```
+# Deployment
+FQDN → httpd-svc.default.svc.cluster.local
+Pod IP → Changes on restart (e.g., 172.31.4.118)
+
+# StatefulSet
+FQDNs →
+- nginx-0.nginx-headless.default.svc.cluster.local
+- nginx-1.nginx-headless.default.svc.cluster.local
+- nginx-2.nginx-headless.default.svc.cluster.local
+
+Pod IP → May change, but name-based resolution is stable
+```
+
+## 🧪 Testing DNS FQDN from a dummy Pod
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dns-test
+spec:
+  containers:
+  - name: test
+    image: curlimages/curl
+    command: ["sleep", "3600"]
+```
+
+## 📦 StatefulSet With Persistent Volumes ==(need PV & PVC)==
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+spec:
+  clusterIP: None
+  selector:
+    app: redis
+  ports:
+  - port: 6379
+    name: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+spec:
+  serviceName: "redis-headless"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 1Gi
+
+```
+
+---
+
+## 🌐 Kubernetes ExternalName Service – Access External Resources via DNS
+
+### 🔍 What is an ExternalName Service?
+An ExternalName service is a special type of Kubernetes Service that allows pods inside the cluster to access an external service (outside the cluster) using an internal DNS name.
+
+Instead of routing traffic to internal pods or endpoints, it returns a CNAME (DNS alias) pointing to an external FQDN.
+
+### 🔧 Example Use Cases
+
+✅ Allow applications to access:
+- An external database (e.g., RDS, MongoDB Atlas)
+- A legacy app running outside Kubernetes (e.g., on EC2)
+- Third-party APIs or SaaS systems (e.g., Google, Stripe)
+
+#### 🛠️ Sample YAML – ExternalName to EC2 Endpoint
+
+```yaml
+# EC2-hosted app
+apiVersion: v1
+kind: Service
+metadata:
+  name: lwm-svc
+spec:
+  type: ExternalName
+  externalName: ec2-52-77-254-161.ap-southeast-1.compute.amazonaws.com
+```
+
+#### 🔧 Sample YAML – ExternalName to Public Website (Google)
+
+```yaml
+# Google ExternalName (for test/demo only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: google-svc
+spec:
+  type: ExternalName
+  externalName: www.google.com
+```
+
+---
+
+## ⚙️ Kubernetes Resource Requests and Limits – Manage Pod Resource Usage
+
+### 🔍 What Are Requests and Limits?
+Kubernetes allows you to control how much CPU and memory a container can request and use through requests and limits. This helps ensure fair resource allocation, avoid overconsumption, and enable auto-scaling.
+
+### 🧠 Key Concepts
+
+| Term           | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| **Request**    | The **minimum** amount of CPU/memory guaranteed to the container       |
+| **Limit**      | The **maximum** amount of CPU/memory the container is allowed to use   |
+| **Eviction**   | If a pod exceeds limits or system is under pressure, it may be evicted |
+| **Throttling** | CPU usage above limit is throttled (not evicted)                       |
+
+#### 🔧 Example YAML – Resource Request and Limit
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-rl
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+```
+
+#### 💡 CPU Units Explained
+
+| Value  | Meaning         |
+| ------ | --------------- |
+| `1`    | 1 full CPU core |
+| `500m` | 0.5 CPU core    |
+| `100m` | 0.1 CPU core    |
+
+
+#### 💡 Memory Units
+Common formats: Mi, Gi, M, G
+
+Example: 128Mi = 128 Mebibytes
+
+### ⚙️ What Happens at Runtime?
+- If the node runs out of resources:
+  - Pods may be evicted if they exceed memory limits
+  - CPU usage will be throttled if it exceeds CPU limits
+- Requests help the scheduler decide where to place pods
+
+### 🧪 Real-World Use Case
+
+| Scenario                   | Request              | Limit                |
+| -------------------------- | -------------------- | -------------------- |
+| Small API                  | 100m CPU / 128Mi RAM | 200m CPU / 256Mi RAM |
+| Heavy Worker               | 500m CPU / 512Mi RAM | 1 CPU / 1Gi RAM      |
+| Memory-intensive Batch Job | 256Mi RAM            | 1Gi RAM              |
+
+---
+
+## 📈 HPA vs VPA – Kubernetes Auto Scaling Demystified
+In Kubernetes, auto-scaling ensures that your application has the right number of resources and replicas based on real-time demand. The two main types of autoscalers are:
+
+- **Horizontal Pod Autoscaler (HPA)** – scales the number of pod replicas
+- **Vertical Pod Autoscaler (VPA)** – adjusts the resource requests/limits for each pod
+
+### 🔄 What is HPA (Horizontal Pod Autoscaler)?
+HPA automatically adjusts the number of pods in a Deployment, ReplicaSet, or StatefulSet based on observed CPU/memory usage or custom metrics.
+
+### ✅ Use when:
+
+- You want to scale out/in based on traffic/load
+- Your app is stateless
+- Metrics are available via Metrics Server
+
+#### 🔧 Example YAML – HPA
+
+```yaml
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-apache
+spec:
+  selector:
+    matchLabels:
+      run: php-apache
+  template:
+    metadata:
+      labels:
+        run: php-apache
+    spec:
+      containers:
+      - name: php-apache
+        image: registry.k8s.io/hpa-example
+        ports:
+        - containerPort: 80
+        resources:
+          limits:
+            cpu: 500m
+          requests:
+            cpu: 200m
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-apache
+spec:
+  ports:
+  - port: 80
+  selector:
+    run: php-apache
+---
+# HPA (Metrics Server Required)
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: php-apache-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: php-apache
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+```
+
+### 🧱 What is VPA (Vertical Pod Autoscaler)?
+VPA automatically adjusts the CPU and memory requests/limits of containers in a pod to better match the actual usage.
+
+### ✅ Use when:
+
+- You want to optimize resource usage per pod
+- Your app does not scale well horizontally
+- You need to reduce over-provisioning
+
+#### 🔧 Modes in VPA:
+
+| Mode      | Behavior                         |
+| --------- | -------------------------------- |
+| `Off`     | Just monitor; no action          |
+| `Auto`    | Actively updates pod resources   |
+| `Initial` | Only sets values on pod creation |
+
+#### Example YAML – VPA
+
+```yaml
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: php-apache-vpa
+spec:
+  targetRef:
+    apiVersion: "apps/v1"
+    kind:       Deployment
+    name:       php-apache
+  updatePolicy:
+    updateMode: "Auto"
+```
 
 ---
 
