@@ -118,20 +118,9 @@ alias kubectl="minikube kubectl --"
 kubectl get pod
 ```
 
----
 
-### 📞 Contact Us
-**Phone:** [+91 91500 87745](tel:+919150087745)
 
-### 💬 Ask Your Doubts
-Join our **Discord Community**  
-👉 [Click here to connect](https://discord.gg/N7GBNHBdqw)
-
-### 📺 Explore More Learning
-Subscribe to our **YouTube Channel** – *Learn With Mithran*  
-🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
-
----
+----------------------------------------------------------------------------------------------------------------------------
 
 # 🚀 Kubernetes Part 2 – YAML Reference Guide
 
@@ -2507,5 +2496,6 @@ Join our **Discord Community**
 ### 📺 Explore More Learning
 Subscribe to our **YouTube Channel** – *Learn With Mithran*  
 🎯 [Watch Now](https://www.youtube.com/@LearnWithMithran)
+
 
 ---
