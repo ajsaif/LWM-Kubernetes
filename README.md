@@ -1,3 +1,17 @@
+# Prerequisites
+sudo apt update && sudo apt install -y unzip curl
+
+# Install
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+rm -rf awscliv2.zip aws
+
+
+
+
+
+
 # 🚀 Kubernetes Part 1 – minikube & KOps Installation
 
 This README serves as a **complete hands-on guide** for Kubernetes learning. It includes YAML manifests and command-line usage to help you practice kubernetes related topics.
@@ -2499,3 +2513,4 @@ Subscribe to our **YouTube Channel** – *Learn With Mithran*
 
 
 ---
+
